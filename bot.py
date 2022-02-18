@@ -16,7 +16,7 @@ if str(path) not in sys.path:
 
 if __name__ == "__main__":
     cogs = {
-    'cogs.maze': ['coordinate', 'block', 'maze', 'game'],}
+    'cogs': ['coordinate', 'block', 'maze', 'game'],}
 
     for dir in cogs:
         for cog in cogs[dir]:
