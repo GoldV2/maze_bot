@@ -13,55 +13,70 @@ class Game(commands.Cog):
 
     @commands.command()
     @commands.is_owner()
-    async def maze_here(self, ctx):
+    async def here(self, ctx):
         self.maze_channel = ctx.channel    
 
     @commands.command()
-    async def maze(self, ctx, p2) -> None:
+    async def maze(self, ctx, p2: str, size: str) -> None:
         def sent_in_maze_channel(ctx):
             return ctx.channel == self.maze_channel
 
         if sent_in_maze_channel(ctx):
-            p1_info = {'player': None, 'msg': None}
-            p2_info = {'player': None, 'msg': None}
+            p1_info = {}
+            p2_info = {}
             
+            # getting player 1
             p1 = ctx.author
             p1_info['player'] = p1
 
+            # getting player 2
             p2_id = p2[2:-1]
             if '!' in p2_id:
                 p2_id = p2_id.replace('!', '')
             p2 = ctx.guild.get_member(int(p2_id))
             p2_info['player'] = p2
             
-            m1 = Maze(self.bot, 10, 10)
-            m1.generate()
-            m2 = Maze(self.bot, 10, 10)
-            m2.generate()
+            # creating mazes
+            if size:
+                m1 = Maze(self.bot, size=int(size))
+                m2 = Maze(self.bot, size=int(size))
 
-            v1 = GameView(p1, m1)
-            v2 = GameView(p2, m2)
+            else:
+                m1 = Maze(self.bot)
+                m2 = Maze(self.bot)
 
+            p1_info['maze'] = m1
+            p2_info['maze'] = m2
+
+            # asking player two if they want to play
             accept_view = AcceptView()
             await p2.send("You hear fast small steps in the middle of the night, seems like someone is going to the bathroom, and fast... You suddenly feel an urge to poop.",
                 view=accept_view)
             await accept_view.wait()
             if accept_view.accepted:
                 await p1.send("You hear someone getting up. You pick up your pace to make sure you get to the bathroom!")
+                
+                # creating games views
+                v1 = GameView(p1, m1)
+                v2 = GameView(p2, m2)
+                
+                # sending game views to users
                 msg1 = await p1.send(str(m1), view=v1)
                 msg2 = await p2.send(str(m2), view=v2)
                 p1_info['msg'] = msg1
                 p2_info['msg'] = msg2
 
+                # waiting for someone to be done
                 done, pending = await asyncio.wait([
                     asyncio.create_task(v1.wait(), name='v1'),
                     asyncio.create_task(v2.wait(), name='v2')
                 ], return_when=asyncio.FIRST_COMPLETED)
                 first = done.pop()
 
-                v1.stop()
-                v2.stop()
+                await v1.disable(msg1)
+                await v2.disable(msg2)
 
+                # deterining who won
                 if first.get_name() == 'v1':
                     winner = p1_info
                     loser = p2_info
@@ -69,12 +84,20 @@ class Game(commands.Cog):
                     winner = p2_info
                     loser = p1_info
 
+                # pooping everywhere
+                loser['maze'].poop()
+                await loser['msg'].edit(content=str(loser['maze']))
+
+                # sending messages
                 won_message = 'Congratulations, you made it to the bathroom first!'
                 lost_message = 'You pooped your pants, someone else got to the bathroom first!'
-                await winner['msg'].edit(content=won_message, view=None)
-                await loser['msg'].edit(content=lost_message, view=None)
+                await winner['player'].send(content=won_message)
+                await loser['player'].send(content=lost_message)
 
-                await ctx.send(f"{winner['player'].nick} got to the bathroom before {loser['player'].nick}, who unfortunately pooped his pants!")
+                # sending messages to the original channel
+                await ctx.send(f"{winner['player'].nick} got to the bathroom before {loser['player'].nick}, who unfortunately pooped his pants!\n\nGame Stats")
+                await ctx.send(f"{winner['player'].nick}'s Maze\n{winner['maze']}")
+                await ctx.send(f"{loser['player'].nick}'s Maze (of course it has poop everywhere)\n{loser['maze']}")
 
             else:
                 await p1.send(f"Luckily you were quiet enough and did not wake up {p2.nick}, you have the bathroom all to yourself.")
@@ -86,57 +109,34 @@ class GameView(discord.ui.View):
         self.p: discord.Member = p
         self.maze: Maze = maze
 
-    @discord.ui.button(label='Up', style=discord.ButtonStyle.blurple)
-    async def up(self, button, interaction):
-        new_coord = self.maze.blocks[self.maze.occupied].coord.move('up')
-        if new_coord in self.maze.blocks and self.maze.blocks[new_coord].state != 'blocked':
-            self.maze.blocks[self.maze.occupied].state = 'visited'
-            self.maze.occupied = new_coord
-            self.maze.blocks[self.maze.occupied].state = 'occupied'
-
-            await interaction.response.edit_message(content=str(self.maze))
-
-            self.won()
-
-    @discord.ui.button(label='Down', style=discord.ButtonStyle.blurple, row=2)
-    async def down(self, button, interaction):
-        new_coord = self.maze.blocks[self.maze.occupied].coord.move('down')
-        if new_coord in self.maze.blocks and self.maze.blocks[new_coord].state != 'blocked':
-            self.maze.blocks[self.maze.occupied].state = 'visited'
-            self.maze.occupied = new_coord
-            self.maze.blocks[self.maze.occupied].state = 'occupied'
-
-            await interaction.response.edit_message(content=str(self.maze))
-
-            self.won()
-
-    @discord.ui.button(label='Left', style=discord.ButtonStyle.blurple)
-    async def left(self, button, interaction):
-        new_coord = self.maze.blocks[self.maze.occupied].coord.move('left')
-        if new_coord in self.maze.blocks and self.maze.blocks[new_coord].state != 'blocked':
-            self.maze.blocks[self.maze.occupied].state = 'visited'
-            self.maze.occupied = new_coord
-            self.maze.blocks[self.maze.occupied].state = 'occupied'
-
-            await interaction.response.edit_message(content=str(self.maze))
-
-            self.won()
-
-    @discord.ui.button(label='Right', style=discord.ButtonStyle.blurple, row=2)
-    async def right(self, button, interaction):
-        new_coord = self.maze.blocks[self.maze.occupied].coord.move('right')
-        if new_coord in self.maze.blocks and self.maze.blocks[new_coord].state != 'blocked':
-            self.maze.blocks[self.maze.occupied].state = 'visited'
-            self.maze.occupied = new_coord
-            self.maze.blocks[self.maze.occupied].state = 'occupied'
-
-            await interaction.response.edit_message(content=str(self.maze))
-
-            self.won()
+        directions = [('up', 1), ('down', 2), ('left', 1), ('right', 2)]
+        for direction, row in directions:
+            self.add_item(DirectionButton(direction, row))
 
     def won(self):
         if self.maze.maze[-1][-1].state == 'occupied':
             self.stop()
+
+    async def disable(self, msg):
+        self.stop()
+
+        for child in self.children:
+            child.disabled = True
+
+        await msg.edit(view=self)
+
+class DirectionButton(discord.ui.Button):
+    def __init__(self, direction: str, row: int):
+        super().__init__(style=discord.ButtonStyle.blurple,
+            label=direction.capitalize(),
+            row=row)
+
+        self.direction = direction
+
+    async def callback(self, interaction):
+        self.view.maze.move(self.direction)
+        await interaction.response.edit_message(content=str(self.view.maze))
+        self.view.won()
 
 class AcceptView(discord.ui.View):
     def __init__(self):
@@ -147,13 +147,21 @@ class AcceptView(discord.ui.View):
     @discord.ui.button(label='Wake Up', style=discord.ButtonStyle.green)
     async def accept(self, button, interaction):
         self.accepted = True
-        self.stop()
-        await interaction.response.edit_message(content="As you get up from the bed, the steps get louder and faster... You have to get up quick and run to the bathroom!",view=None)
+        await self.stop(interaction)
+        await interaction.response.send_message(content="As you get up from the bed, the steps get louder and faster... You have to get up quick and run to the bathroom!")
 
     @discord.ui.button(label='Hold it In', style=discord.ButtonStyle.red, row=2)
     async def refuse(self, button, interaction):
-        self.stop()
-        await interaction.response.edit_message(content="You remembered you have diapers on, so you decide to go back to sleep.",view=None)
+        await self.stop(interaction)
+        await interaction.response.send_message(content="You remembered you have diapers on, so you decide to go back to sleep.")
+
+    async def stop(self, interaction):
+        super().stop()
+
+        for child in self.children:
+            child.disabled = True
+
+        await interaction.message.edit(view=self)
 
 def setup(bot):
     bot.add_cog(Game(bot))

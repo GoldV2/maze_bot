@@ -7,14 +7,15 @@ from .block import Block
 
 class Maze(commands.Cog):
 
-    def __init__(self, bot, height: int, width: int):
+    def __init__(self, bot, size: int = 10):
         self.bot = bot
-        self.height: int = height
-        self.width: int = width
+        self.size = size if size < 14 else 14
         
-        self.maze: list[list[Block]] = [[] for i in range(height)]
+        self.maze: list[list[Block]] = [[] for i in range(self.size)]
         self.blocks: dict[Coordinate, Block] = {}
         self.occupied: Coordinate = Coordinate(self.bot, i=0, j=0)
+
+        self.generate()
 
     def generate(self) -> None:
         self.add_blocks()
@@ -22,8 +23,8 @@ class Maze(commands.Cog):
         self.fill_maze()
 
     def add_blocks(self) -> None:
-        for i in range(self.height):
-            for j in range(self.width):
+        for i in range(self.size):
+            for j in range(self.size):
                 coord = Coordinate(self.bot, i=i, j=j)
                 block = Block(self.bot, coord)
                 self.maze[j].append(block)
@@ -40,17 +41,28 @@ class Maze(commands.Cog):
                 self.blocks[coord].state = 'empty'
 
     def fill_maze(self) -> None:
-        for i in range(self.height):
-            for j in range(self.width):
-                if self.maze[i][j].state == 'null':
-                    state = choice(['blocked', 'blocked', 'empty', 'empty', 'empty'])
-                    self.maze[i][j].state = state
+        for block in self.blocks.values():
+            if block.state == 'null':
+                block.state = choice(['blocked', 'blocked', 'empty', 'empty', 'empty'])
 
         self.maze[0][0].state = 'occupied'
         self.maze[-1][-1].state = 'end'
 
-    def get(self, coord: Coordinate) -> Block:
-        return self.blocks[coord]
+    def move(self, direction: str) -> None:
+        new_block = self.get_block(self.occupied.move(direction))
+        if new_block and new_block.state != 'blocked':
+            self.blocks[self.occupied].state = 'visited'
+            new_block.state = 'occupied'
+            self.occupied = new_block.coord
+
+    def get_block(self, coord: Coordinate) -> Block:
+        if coord in self.blocks:
+            return self.blocks[coord]
+
+    def poop(self) -> None:
+        for block in self.blocks.values():
+            if block.state == 'empty':
+                block.state = 'visited'
 
     def __str__(self) -> str:
         s = ""
@@ -63,4 +75,4 @@ class Maze(commands.Cog):
         return s
 
 def setup(bot):
-    bot.add_cog(Maze(bot, -1, -1))
+    bot.add_cog(Maze(bot))
