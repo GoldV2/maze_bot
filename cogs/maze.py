@@ -11,6 +11,7 @@ class Maze(commands.Cog):
         self.bot = bot
         self.height: int = height
         self.width: int = width
+        
         self.maze: list[list[Block]] = [[] for i in range(height)]
         self.blocks: dict[Coordinate, Block] = {}
         self.occupied: Coordinate = Coordinate(self.bot, i=0, j=0)
