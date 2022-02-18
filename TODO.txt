@@ -1,0 +1,59 @@
+Coordinate class
+	Attributes:
+		__x: int
+		__y: int
+
+	Methods:
+		# all of the following methods will create a new Coordinate object with a 1 difference in the respective x or y value
+		down() -> Coordinate
+		right() -> Coordinate
+		left() -> Coordinate
+		up() -> Coordinate
+
+Block class
+	Attributes:
+		__coord: Coordinate
+		state: str # empty, blocked, occupied, visited
+		possible_moves = list[str]
+
+	Methods:
+		@property
+		coord() -> Coordinate
+			return self.__cord
+
+		__str__() -> str
+			"""
+			Returns a difference emoji for each state
+			"""
+
+Maze class
+	Attributes
+		height: int
+		width: int
+		maze: list[list[Block]]
+		blocks: dict[Coordinate, Block]
+	
+	Methods
+		generate_maze() -> list[list[Block]]
+		
+		move(direction: str) -> None
+			"""
+			Given a direction, up, down, left, right, move the "person" to the respective block
+			"""
+
+		get(coord: Coordinate) -> Block
+			"""
+			Returns the block with the given coordinate
+			return self.blocks[coord]
+			"""
+
+		solve() -> list[str]
+			"""
+			Solves the maze and returns a list with all the steps taken
+			"""
+
+		__str__() -> str
+			"""
+			Returns what the person should see.
+			The visited positions behind them and the next possible moves
+			"""
