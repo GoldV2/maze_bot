@@ -14,7 +14,6 @@ class Block(commands.Cog):
         self.bot = bot
         self.coord: Coordinate = coord
         self.state: str = state
-        self.possible_moves: list[str] = []
 
     def __str__(self) -> str:
         return self.states[self.state]
